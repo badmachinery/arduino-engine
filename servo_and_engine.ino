@@ -7,7 +7,7 @@ int signals_sleep[2] = {200, 1000}; //задержка индикатора ка
 void led_on_without_interruption(int _signal, byte pin_num){
   pinMode(pin_num, OUTPUT);
   int _bin[3];
-  for(int i=2; i>=0; ++i){
+  for(int i=2; i>=0; --i){
     _bin[i] = _signal%2;
     _signal/=2;
   }
@@ -54,21 +54,11 @@ int32_t engine_frequency = 600;
 
 int time_in = millis();
 
-int readValNew(char& check){
-  int tmp = Serial.read();
-  if(tmp=='s' && tmp=='r'){
-   check = tmp;
-   tmp = Serial.parseInt();
-   return tmp;
-  }
-  return tmp;
-}
-
 int readVal(char &check){
   //digitalWrite(LED_BUILTIN, LOW);
   int tmp = Serial.read();
   Serial.print(2);
-  while(tmp!='s' && tmp!='r'){
+  while(tmp!='s' && tmp!='r' && tmp!='b'){
    tmp = Serial.read();
    if(millis()-time_in>200){
     sp = 7200;
@@ -89,9 +79,11 @@ int fl_bool = 1;
 int on = 0;
 int _time; 
 int time_for_reset;
+int last_sp;
+int last_sp_t;
+int stop_reg = 1;
 
 void setup(){
-  //digitalWrite(7, HIGH);
   Serial.begin(115200);
   InitTimersSafe();
   bool succes = SetPinFrequencySafe(engine,servo_frequency);
@@ -100,17 +92,12 @@ void setup(){
   pwmWriteHR(engine, neutral);
   Wire.begin();
   _time = millis();
+  last_sp = neutral;
+  last_sp_t = millis();
   pinMode(13,OUTPUT);
 }
 
 void loop(){
-    /*if(Serial.available()>0){
-      time_in = millis();
-      char c = Serial.read();
-      if(c=='0') 
-        pwmWriteHR(engine, neutral);
-      else pwmWriteHR(engine, 7450);
-    }*/   
     if(millis()-time_in>200){
       sp = 7200;
       rt = 7200;
@@ -121,14 +108,11 @@ void loop(){
       //Serial.end();
       //Serial.begin(9600);
       if(on) {
-        led_on_with_interruption(5,13);
-        //digitalWrite(LED_BUILTIN, LOW);
+         digitalWrite(LED_BUILTIN, LOW);
          on = 0;
       }
       else {
-        //digitalWrite(LED_BUILTIN, HIGH);
-        led_on_with_interruption(5,13);
-        
+        digitalWrite(LED_BUILTIN, HIGH);
         on = 1;
       }
       _time = millis();
@@ -136,7 +120,6 @@ void loop(){
     if (Serial.available() > 0){
       _time = millis();
       time_in = millis();
-      //digitalWrite(LED_BUILTIN, HIGH);
       char check;
       int tmp = readVal(check);
       if(check == 's' && tmp!=-1) 
@@ -144,9 +127,17 @@ void loop(){
       else 
         if (check == 'r' && tmp!=-1)
           rt = tmp;
+      else 
+        if (check == 'b' && tmp!=-1){
+          pwmWriteHR(engine, neutral);
+          delay(10);
+          pwmWriteHR(engine, 7200-tmp);
+          delay(40);
+        }  
       pwmWriteHR(myservo, rt);
       pwmWriteHR(engine, sp);
       Serial.print(1);
+      
       /*
       Serial.print("S: ");
       Serial.print(sp);
